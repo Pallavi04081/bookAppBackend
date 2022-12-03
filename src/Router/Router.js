@@ -9,14 +9,16 @@ const key = 'abcdefghiklmnop';
 
 Router.post("/login", async (req, res) => {
     try {
-        const userData = UserRegistation.find({ username: req.body.username })
+        const userData = await UserRegistation.find({ username: req.body.username })
+        console.log(userData)
         if (!userData) {
             res.status(400).json({
                 error: "User Not Registered"
             })
         }
         else {
-            const hashedPassword = bcrypt.compare(req.body.passowrd, userData.passowrd)
+            const hashedPassword = bcrypt.compare(req.body.password
+                , userData[0].passowrd)
             if (!hashedPassword) {
                 res.status(400).json({
                     error: "Envalid usernmae or passowrd"
@@ -39,20 +41,22 @@ Router.post("/login", async (req, res) => {
 
 
 
-Router.post('/Registration',body('password').isLength({ min: 5 }), async (req, res) => {
-    const validation = validationResult(req)
-
-    if (!validation.isEmpty()) {
-        res.status(400).json({
-            error: validation
-        })
-    }
-    else {
-        if (req.body.passowrd === req.body.confirmpassowrd) {
-            const password = await bcrypt.hash(req.body.password, 10)
+Router.post('/Registration', async (req, res) => {
+    // // const validation = validationResult(req)
+    // // console.log(req.body)
+    // // console.log(validation)
+    // // if (!validation.isEmpty()) {
+    //     res.status(400).json({
+    //         error: validation
+    //     })
+    // }
+        if (req.body.passowrd === req.body.ConfirmPassword) {
+            console.log(req.body)
+            let userpassword = await bcrypt.hash(req.body.passowrd, 10)
+            //console.log(userpassword)userpassword
             const Result = await UserRegistation.create({
                 username: req.body.username,
-                passowrd: password,
+                password: userpassword ,
             })
             res.status(200).json({
                 Result: Result
@@ -65,7 +69,7 @@ Router.post('/Registration',body('password').isLength({ min: 5 }), async (req, r
         }
 
     }
-})
+)
 
 Router.get("/books", async (req, res) => {
     try {

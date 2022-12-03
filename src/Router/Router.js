@@ -1,87 +1,193 @@
 const express = require('express')
 const Router = express.Router()
-const ScrapperData = require('G:/comapnyAssingement/Scapper/src/ScrapperSchema/ScrapperSchema.js')
-const axios = require('axios')
-const cheerio = require('cheerio')
-const datakeys = ['rank',
-    'name',
-    'price',
-    "1h",
-    "24h",
-    "7d",
-    'marketCap',
-    'vaolume',
-    'circulatingSupply'
-];
+const BooksData = require('../Schema/booksSchema')
+const UserRegistation = require('../Schema/RegistrationSchema')
+const { body, validationResult } = require('express-validator')
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken')
+const key = 'abcdefghiklmnop';
 
-const dataArray = [];
-let objectid = "";
-const getdata = async () => {
+Router.post("/login", async (req, res) => {
     try {
-        const data = await axios.get("https://coinmarketcap.com/")
-        const finalData = await (data.data)
-        const $ = cheerio.load(finalData)
-        const elementSelector = "#__next > div > div.main-content > div.sc-4vztjb-0.cLXodu.cmc-body-wrapper > div > div:nth-child(1) > div.h7vnx2-1.bFzXgL > table > tbody > tr"
-        $(elementSelector).each((index, element) => {
-            const dataObj = {};
-            let keyindex = 0;
-            if (index <= 9) {
-                $(element).children().each((childindex, childelement) => {
-                    const tdValue = ($(childelement).text())
-                    if (tdValue) {
-                        if (tdValue == 'rank') {
-                            dataObj[datakeys[keyindex]] = parseInt(tdValue)
-                            keyindex++
-                        }
-                        else {
-                            dataObj[datakeys[keyindex]] = (tdValue)
-                            keyindex++
-                        }
-                    }
-                })
-                dataArray.push(dataObj)
-            }
-        })   
-        senddatatodb()   
-    }
-    catch (error) {
-        console.log(error.message)
-    }
-}
-
- const senddatatodb = async()=>{
-     try{
-        let Result = ScrapperData.find();
-            console.log(Result)
-             Result = await ScrapperData.updateOne({_id:Result._id},{
-                array:dataArray
-            })
-
-        else{
-             Result = await ScrapperData.create({
-                array:dataArray
+        const userData = UserRegistation.find({ username: req.body.username })
+        if (!userData) {
+            res.status(400).json({
+                error: "User Not Registered"
             })
         }
-     }
-     catch(error){
-        console.log(error)
-     }
- }
- 
-//    setInterval(() => {
-//     getdata();
-//       }, 5000)
-
-
-Router.get('/getdata', async (req, res) => {
-    try {
-        const Result = await ScrapperData.find().sort({ rank: 1 });
-        res.json({
-            Result: Result
+        else {
+            const hashedPassword = bcrypt.compare(req.body.passowrd, userData.passowrd)
+            if (!hashedPassword) {
+                res.status(400).json({
+                    error: "Envalid usernmae or passowrd"
+                })
+            }
+            else {
+                const Token = jwt.sign({ userData }, key)
+                res.json({
+                    Token: Token
+                })
+            }
+        }
+    }
+    catch (error) {
+        res.status(400).json({
+            error: error
         })
-    } catch (error) {
-        console.log(error)
     }
 })
 
-module.exports = Router
+
+
+Router.post('/Registration',body('password').isLength({ min: 5 }), async (req, res) => {
+    const validation = validationResult(req)
+
+    if (!validation.isEmpty()) {
+        res.status(400).json({
+            error: validation
+        })
+    }
+    else {
+        if (req.body.passowrd === req.body.confirmpassowrd) {
+            const password = await bcrypt.hash(req.body.password, 10)
+            const Result = await UserRegistation.create({
+                username: req.body.username,
+                passowrd: password,
+            })
+            res.status(200).json({
+                Result: Result
+            })
+        }
+        else {
+            res.status(400).json({
+                error: "password not match"
+            })
+        }
+
+    }
+})
+
+Router.get("/books", async (req, res) => {
+    try {
+        const Token = req.headers.Authorization
+        let userDeta;
+        if (!Token) {
+            res.status(400).json({
+                message: "please login"
+            })
+        }
+        else {
+            userDeta = jwt.verify(Token, key)
+        }
+
+        const Result = await BooksData.find({ user: userDeta[0]._id })
+        res.json({
+            Result: Result
+        })
+    }
+    catch (error) {
+        res.status(400).json({
+            error: error
+        })
+    }
+
+})
+
+
+Router.post("/books", async (req, res) => {
+    try {
+        const Token = req.headers.Authorization
+        let userDeta;
+        if (!Token) {
+            res.status(400).json({
+                message: "please login"
+            })
+        }
+        else {
+            userDeta = jwt.verify(Token, key)
+        }
+        const Result = await BooksData.create({
+            title:req.body.title,
+            ISBN:req.body.ISBN,
+            Author:req.body.Author,
+            Describtion:req.body.Describtion,
+            publishedDate:req.body.publishedDate,
+            publisher:req.body.publisher,
+            user:userDeta[0]._id
+        })
+        res.json({
+            Result: Result
+        })
+    }
+    catch (error) {
+        res.status(400).json({
+            error: error
+        })
+    }
+
+})
+
+
+
+Router.put("/books/update/:id", async (req, res) => {
+    try {
+        const Token = req.headers.Authorization
+        let userDeta;
+        if (!Token) {
+            res.status(400).json({
+                message: "please login"
+            })
+        }
+        else {
+            userDeta = jwt.verify(Token, key)
+        }
+        const Result = await BooksData.findByIdAndUpdate({_id:req.params.id},{
+            title:req.body.title,
+            ISBN:req.body.ISBN,
+            Author:req.body.Author,
+            Describtion:req.body.Describtion,
+            publishedDate:req.body.publishedDate,
+            publisher:req.body.publisher,
+            user:userDeta[0]._id
+        })
+        res.json({
+            Result: Result
+        })
+    }
+    catch (error) {
+        res.status(400).json({
+            error: error
+        })
+    }
+
+})
+
+
+Router.delete("/books/delete/:id", async (req, res) => {
+    try {
+        const Token = req.headers.Authorization
+        let userDeta;
+        if (!Token) {
+            res.status(400).json({
+                message: "please login"
+            })
+        }
+        else {
+            userDeta = jwt.verify(Token, key)
+        }
+
+        const Result = await BooksData.findOneAndDelete({ _id:req.params.id })
+        res.json({
+            Result: Result
+        })
+    }
+    catch (error) {
+        res.status(400).json({
+            error: error
+        })
+    }
+
+})
+
+
+module.exports = Router;

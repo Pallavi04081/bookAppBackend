@@ -1,7 +1,7 @@
 const mongoose = require('mongoose')
 const app = require('./app')
 
-mongoose.connect(`mongodb+srv://1234:${process.env.PASSWORD}@cluster0.effifom.mongodb.net/?retryWrites=true&w=majority`).then(()=>{
+mongoose.connect('mongodb://127.0.0.1:27017/bookApp').then(()=>{
     console.log('connected to mongodb')
 }).catch((error)=>{
     console.log(error)
